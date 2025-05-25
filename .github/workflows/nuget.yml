@@ -1,0 +1,96 @@
+name: Publish to NuGet (may fail to indicate skip)
+
+on:
+  workflow_run:
+    workflows: [ "Build & Test" ]
+    types: [ completed ]
+
+concurrency:
+  group: nuget-${{ github.ref }}
+  cancel-in-progress: false
+  
+run-name: Publish to NuGet if necessary
+
+jobs:
+  publish:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4   
+      
+      - name: Download git reference data
+        uses: actions/cache@v4
+        with:
+          path: github_refs.wd
+          key: push-reference
+        
+      - name: Extract git reference data
+        id: git-data
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/nuget/extract-git-ref-data.sh"
+
+      - name: Validate tag format
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/nuget/validate-tag-format.sh" "${{ env.GIT_TAG }}"
+      
+      - name: Checkout specific reference
+        run: git checkout "$GIT_REFERENCE"
+        env:
+          GIT_REFERENCE: ${{ env.GIT_REFERENCE }}
+          
+      - name: Check project version
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/nuget/check-project-version.sh" "${{ env.GIT_TAG }}"
+        
+      - name: Download dotnet versions
+        uses: actions/cache@v4
+        with: 
+          path: dotnet-versions.txt
+          key: dotnet-versions-${{ env.GIT_REFERENCE }}
+      
+      - name: Determine highest .NET version
+        id: highest-dotnet
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/nuget/extract-highest-version.sh"
+        
+      - name: Download build data
+        uses: actions/cache@v4
+        with: 
+          path: release_bin_assets_files_all_versions.zip
+          key: build-artifacts-${{ env.GIT_REFERENCE }}
+          
+      - name: Extract build data
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/nuget/extract-build-files.sh"
+        
+      - name: Debug tree
+        run: tree -a
+        shell: bash  
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ steps.highest-dotnet.outputs.ALL_DOTNET_VERSIONS_XY }}
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.SOFTOMNI_NUGET_KEY }}
+
+      - name: Pack
+        run: dotnet pack --configuration Release --no-build --output ./artifacts
+        
+      - name: Debug tree
+        run: tree -a
+        shell: bash
+        
+      - name: Debug Push Command Arguments (Masked Key)
+        run: |
+          echo "Command arguments verification:"
+          # Use printf to avoid echo interpretation issues, mask the key
+          printf "Arg 1: %s\n" "dotnet"
+          printf "Arg 2: %s\n" "nuget"
+          printf "Arg 3: %s\n" "push"
+          printf "Arg 4: %s\n" "./artifacts/*.nupkg" # Note: Shell expands this later
+          printf "Arg 5: %s\n" "--api-key"
+          printf "Arg 6: %s\n" "***MASKED***"
+          printf "Arg 7: %s\n" "--source"
+          printf "Arg 8: %s\n" "https://api.nuget.org/v3/index.json"
+            
+      
+      - name: Publish
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.SOFTOMNI_NUGET_KEY }} --source https://api.nuget.org/v3/index.json

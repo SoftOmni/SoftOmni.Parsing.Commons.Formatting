@@ -1,0 +1,172 @@
+name: Build & Test
+
+on:
+  push:
+    branches:
+      - "*"
+
+run-name: Build & Test ${{ github.event.head_commit.message }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      highest: ${{ steps.set-matrix.outputs.highest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate .NET versions matrix and determine highest version
+        id: set-matrix
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/set-matrix.sh"
+
+  generate-test-matrix:
+    runs-on: ubuntu-latest
+    needs: generate-matrix
+    outputs:
+      matrix: ${{ needs.generate-matrix.outputs.matrix }}
+      test-matrix: ${{ steps.set-test-matrix.outputs.test-matrix }}
+      highest: ${{ steps.sdk-version-highest.outputs.sdk_version }}
+      dot_highest: ${{ steps.sdk-version-highest.outputs.dotnet_sdk_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate test matrix with projects and frameworks
+        id: set-test-matrix
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/generate-project-matrix.sh" "${GITHUB_WORKSPACE}" '${{ needs.generate-matrix.outputs.matrix }}'
+
+      - name: Determine .NET SDK version for testing
+        id: sdk-version-highest
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/set-dotnet-version-for-tests.sh" "${{ needs.generate-matrix.outputs.highest }}"
+
+      - name: Debug test-matrix output
+        run: |
+          echo "Generated Matrix: ${{ steps.set-test-matrix.outputs.test-matrix }}"
+        shell: bash
+  
+  test:
+    needs: [ generate-test-matrix ]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.generate-test-matrix.outputs.test-matrix) }}
+      fail-fast: false
+    outputs:
+      highest: ${{ needs.generate-test-matrix.outputs.dot_highest }}
+      git-hash: ${{ steps.git-ref-data-save.outputs.GIT_HASH }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine .NET SDK version for testing
+        id: sdk-version-test
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/set-dotnet-version-for-tests.sh" "${{ matrix.dotnet_version }}"
+
+      - name: Setup .NET for test
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ needs.generate-test-matrix.outputs.highest }}
+
+      - name: Set VERSION variable from tag or commit
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/set-version-tag-for-tests.sh"
+
+      - name: Setup directory for tests
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/setup-directory.sh" "${{ matrix.dotnet_version }}" "${GITHUB_WORKSPACE}"
+
+      - name: Setup directory variables for tests
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/run_tests.sh" "${{ matrix.test_project }}"
+
+      - name: Run tests
+        run: dotnet test --configuration Release --framework ${{ matrix.dotnet_version }} --logger "trx;LogFileName=${GITHUB_WORKSPACE}/test_results/${{ matrix.dotnet_version }}/test_results.trx"
+        working-directory: ${{ env.PARENT_DIRECTORY }}
+        id: tests
+
+      - name: Save git reference data into a file
+        id: git-ref-data-save
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/ref_saving.sh"
+
+      - name: Debug tree
+        run: tree -a
+
+      - name: Debug information
+        run: |
+          echo "Dotnet Version: ${{ matrix.dotnet_version }}"
+          echo "Highest Version: ${{ needs.generate-test-matrix.outputs.dot_highest }}"
+
+      - name: Delete presently stored git reference artifact
+        if: matrix.dotnet_version == needs.generate-test-matrix.outputs.dot_highest
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/delete-ref-cache.sh"
+        env:
+          GITHUB_BEARER_TOKEN : ${{ secrets.TOKEN_GITHUB }}
+
+      - name: Publish git reference cache
+        if: matrix.dotnet_version == needs.generate-test-matrix.outputs.dot_highest
+        uses: actions/cache@v4
+        with:
+          path: "github_refs.wd"
+          key: push-reference
+
+      - name: Publish test results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.dotnet_version }}
+          path: "test_results/${{ matrix.dotnet_version }}/*.trx"
+
+      - name: Save .NET versions used
+        run: echo '${{ needs.generate-test-matrix.outputs.matrix }}' >> ${GITHUB_WORKSPACE}/dotnet-versions.txt
+
+      - name: Save .NET versions cache
+        uses: actions/cache@v4
+        with:
+          path: "dotnet-versions.txt"
+          key: dotnet-versions-${{ steps.git-ref-data-save.outputs.GIT_HASH  }}
+
+      - name: Upload build artifacts
+        if: steps.tests.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.dotnet_version }}
+          path: |
+            **/bin/Release/
+            **/obj/project.assets.json
+          retention-days: 1
+
+      - name: Report test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: .NET Tests (${{ matrix.dotnet_version }})
+          path: "test_results/${{ matrix.dotnet_version }}/*.trx"
+          reporter: dotnet-trx
+
+  upload:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts for every version
+        uses: actions/download-artifact@v4
+
+      - name: Debug tree
+        run: tree -a
+        shell: bash
+
+      - name: Create build artifacts zip file
+        if: needs.test.result == 'success'
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/push/build-saving.sh"
+
+      - name: Upload build artifacts zip file to cache
+        if: needs.test.result == 'success'
+        uses: actions/cache@v4
+        with:
+          path: release_bin_assets_files_all_versions.zip
+          key: build-artifacts-${{ needs.test.outputs.git-hash }}
