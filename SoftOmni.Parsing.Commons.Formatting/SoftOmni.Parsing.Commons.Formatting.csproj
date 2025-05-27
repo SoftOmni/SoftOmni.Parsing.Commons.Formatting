@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>SoftOmni.Parsing.Commons.Formatting</RootNamespace>
+        
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageId>SoftOmni.Parsing.Commons.Formatting</PackageId>
+        <Version>0.0.1</Version>
+        
+        <Description>
+            A C# library for expressing formattable code
+        </Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="../README.md" Pack="true" PackagePath="/"/>
+    </ItemGroup>
+    
+    <ItemGroup>
+      <PackageReference Include="SoftOmni.Parsing.Commons.SegmentedStrings" Version="0.0.3" />
+    </ItemGroup>
+    
+</Project>

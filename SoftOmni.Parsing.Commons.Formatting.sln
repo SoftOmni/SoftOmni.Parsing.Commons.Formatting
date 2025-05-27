@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoftOmni.Parsing.Commons.Formatting", "SoftOmni.Parsing.Commons.Formatting\SoftOmni.Parsing.Commons.Formatting.csproj", "{5AEAB7E9-C3D8-4A27-831E-FB0F410CB109}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoftOmni.Parsing.Commons.Formatting.Tests", "SoftOmni.Parsing.Commons.Formatting.Tests\SoftOmni.Parsing.Commons.Formatting.Tests.csproj", "{81042046-10C1-4658-9FB9-7FC23C73480A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5AEAB7E9-C3D8-4A27-831E-FB0F410CB109}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5AEAB7E9-C3D8-4A27-831E-FB0F410CB109}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5AEAB7E9-C3D8-4A27-831E-FB0F410CB109}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5AEAB7E9-C3D8-4A27-831E-FB0F410CB109}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81042046-10C1-4658-9FB9-7FC23C73480A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81042046-10C1-4658-9FB9-7FC23C73480A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81042046-10C1-4658-9FB9-7FC23C73480A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81042046-10C1-4658-9FB9-7FC23C73480A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
