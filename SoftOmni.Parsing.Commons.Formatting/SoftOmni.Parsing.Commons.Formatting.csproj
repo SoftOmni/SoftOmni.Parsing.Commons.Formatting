@@ -8,7 +8,7 @@
         
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageId>SoftOmni.Parsing.Commons.Formatting</PackageId>
-        <Version>0.0.3</Version>
+        <Version>0.0.4</Version>
         
         <Description>
             A C# library for expressing formattable code
