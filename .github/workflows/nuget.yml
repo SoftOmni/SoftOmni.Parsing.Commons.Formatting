@@ -29,6 +29,9 @@ jobs:
       - name: Extract git reference data
         id: git-data
         run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/nuget/extract-git-ref-data.sh"
+        
+      - name: Debug Workspace Structure After Extraction
+        run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/common/debug-workspace-structure.sh"
 
       - name: Validate tag format
         run: bash "${GITHUB_WORKSPACE}/.github/workflows/scripts/nuget/validate-tag-format.sh" "${{ env.GIT_TAG }}"
