@@ -73,10 +73,6 @@ jobs:
           dotnet-version: ${{ steps.highest-dotnet.outputs.ALL_DOTNET_VERSIONS_XY }}
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.SOFTOMNI_NUGET_KEY }}
-          
-      - name: Add NuGet source
-        run: |
-          dotnet nuget add source https://api.nuget.org/v3/index.json --name nuget.org
 
       - name: Pack
         run: dotnet pack --configuration Release --no-build --output ./artifacts
